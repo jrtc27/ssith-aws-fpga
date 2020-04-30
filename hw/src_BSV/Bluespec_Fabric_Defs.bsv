@@ -29,7 +29,8 @@ import Bluespec_AXI4_Types :: *;
 
 // ----------------
 // Width of fabric 'id' buses
-typedef  4             Wd_Id;
+// 4 for Bluespec Flute, 6 for CHERI Flute
+typedef  6             Wd_Id;
 typedef  Bit #(Wd_Id)  Fabric_Id;
 
 // ----------------

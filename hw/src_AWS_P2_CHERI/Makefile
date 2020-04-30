@@ -31,6 +31,7 @@ CONNECTALFLAGS += -lelf
 ############################################################
 
 CONNECTALFLAGS += -DHAVE_BLUESTUFF_AXI
+CONNECTALFLAGS += -DHAVE_ROUTABLE
 CONNECTALFLAGS += -DP2_CORE=CHERI_P2_Core
 
 ############################################################

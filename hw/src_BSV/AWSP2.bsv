@@ -15,6 +15,9 @@ import ConnectalMemTypes :: *;
 // ================================================================
 // Project imports
 
+`ifdef HAVE_ROUTABLE
+import Routable :: *;
+`endif
 `ifdef HAVE_BLUESTUFF_AXI
 import CHERI_P2_Core :: *;
 `else
@@ -37,6 +40,7 @@ import Semi_FIFOF :: *;
 import Bluespec_AXI4_Types   :: *;
 import Bluespec_AXI4_Fabric  :: *;
 import Bluespec_Fabric_Defs  :: *;
+import Bluespec_Bluestuff_AXI4_Connection :: *;
 `else
 import AXI4_Types   :: *;
 import AXI4_Fabric  :: *;
@@ -77,18 +81,18 @@ endinterface
 
 
 (* synthesize *)
-module mkIOFabric(AXI4_Fabric_IFC#(2, 3, 4, 64, 64, 0));
+module mkIOFabric(AXI4_Fabric_IFC#(2, 3, Wd_Id, 64, 64, 0));
 
     let soc_map <- mkSoC_Map();
 
     function Tuple2 #(Bool, Bit #(TLog #(3))) fn_addr_to_slave_num(Bit #(64) addr);
-        if ((soc_map.m_ddr4_0_uncached_addr_base <= addr) && (addr < soc_map.m_ddr4_0_uncached_addr_lim)) begin
+        if ((ddr4_0_uncached_addr_base(soc_map) <= addr) && (addr < ddr4_0_uncached_addr_lim(soc_map))) begin
            return tuple2(True, 0);
         end
-        else if ((soc_map.m_ddr4_0_cached_addr_base <= addr) && (addr < soc_map.m_ddr4_0_cached_addr_lim)) begin
+        else if ((ddr4_0_cached_addr_base(soc_map) <= addr) && (addr < ddr4_0_cached_addr_lim(soc_map))) begin
            return tuple2(True, 0);
         end
-        else if ((soc_map.m_uart16550_0_addr_base <= addr) && (addr < soc_map.m_uart16550_0_addr_lim)) begin
+        else if ((uart16550_0_addr_base(soc_map) <= addr) && (addr < uart16550_0_addr_lim(soc_map))) begin
            return tuple2(True, 1);
         end
         else begin
@@ -96,7 +100,7 @@ module mkIOFabric(AXI4_Fabric_IFC#(2, 3, 4, 64, 64, 0));
         end
    endfunction
 
-   AXI4_Fabric_IFC#(2, 3, 4, 64, 64, 0) axiFabric <- mkAXI4_Fabric(fn_addr_to_slave_num);
+   AXI4_Fabric_IFC#(2, 3, Wd_Id, 64, 64, 0) axiFabric <- mkAXI4_Fabric(fn_addr_to_slave_num);
 
    method reset = axiFabric.reset;
    method set_verbosity = axiFabric.set_verbosity;
@@ -105,7 +109,7 @@ module mkIOFabric(AXI4_Fabric_IFC#(2, 3, 4, 64, 64, 0));
 endmodule
 
 (* synthesize *)
-module mkMemFabric(AXI4_Fabric_IFC#(2, 2, 4, 64, 512, 0));
+module mkMemFabric(AXI4_Fabric_IFC#(2, 2, Wd_Id, 64, 512, 0));
 
    function Tuple2 #(Bool, Bit #(1)) fn_mem_addr_to_slave_num(Bit #(64) addr);
       return tuple2(True, 0);
@@ -137,7 +141,7 @@ module mkAWSP2#(AWSP2_Response response)(AWSP2);
    Vector#(16, Reg#(Bit#(8)))    objIds <- replicateM(mkReg(0));
 
 
-   AXI4_Fabric_IFC#(2, 3, 4, 64, 64, 0) axiFabric <- mkIOFabric();
+   AXI4_Fabric_IFC#(2, 3, Wd_Id, 64, 64, 0) axiFabric <- mkIOFabric();
    mkConnection(p2_core.master0, axiFabric.v_from_masters[0]);
    mkConnection(p2_core.master1, axiFabric.v_from_masters[1]);
    let to_slave0 = axiFabric.v_to_slaves[0];
@@ -147,7 +151,7 @@ module mkAWSP2#(AWSP2_Response response)(AWSP2);
    AXI4_Deburster_IFC #(Wd_Id, Wd_Addr, Wd_Data, Wd_User) deburster <- mkDeburster();
    let memController <- mkAXI_Mem_Controller();
 
-   AXI4_Fabric_IFC#(2, 2, 4, 64, 512, 0) memFabric <- mkMemFabric();
+   AXI4_Fabric_IFC#(2, 2, Wd_Id, 64, 512, 0) memFabric <- mkMemFabric();
    mkConnection(to_slave0, deburster.from_master);
    mkConnection(deburster.to_slave, memController.slave);
    //let rawmem_xn <- mkConnection(memController.to_raw_mem, memFabric.v_from_masters[0]);
@@ -155,13 +159,13 @@ module mkAWSP2#(AWSP2_Response response)(AWSP2);
    let to_ddr = memController.to_raw_mem;
 
    // tie off dummy port (later connect to second DRAM bank or UltraRam bank)
-   AXI4_Slave_Xactor_IFC#(4, 64, 512, 0) extra_slave_xactor <- mkAXI4_Slave_Xactor();
+   AXI4_Slave_Xactor_IFC#(Wd_Id, 64, 512, 0) extra_slave_xactor <- mkAXI4_Slave_Xactor();
    mkConnection(memFabric.v_to_slaves[1], extra_slave_xactor.axi_side);
 
    let from_dma_pcis = memFabric.v_from_masters[1];
 
 `ifndef BOARD_awsf1
-    AXI4_Master_Xactor_IFC#(4, 64, 512, 0) dma_pcis_master_xactor <- mkAXI4_Master_Xactor();
+    AXI4_Master_Xactor_IFC#(Wd_Id, 64, 512, 0) dma_pcis_master_xactor <- mkAXI4_Master_Xactor();
     mkConnection(dma_pcis_master_xactor.axi_side, from_dma_pcis);
 `endif
 
@@ -179,7 +183,7 @@ module mkAWSP2#(AWSP2_Response response)(AWSP2);
    FIFOF#(Bit#(MemTagSize)) doneFifo0 <- mkFIFOF();
 
 `ifndef USE_DDR
-   AXI4_Slave_Xactor_IFC#(4, 64, 512, 0) ddr_slave_xactor <- mkAXI4_Slave_Xactor();
+   AXI4_Slave_Xactor_IFC#(Wd_Id, 64, 512, 0) ddr_slave_xactor <- mkAXI4_Slave_Xactor();
    let ddr_xn <- mkConnection/*Verbose*/(to_ddr, ddr_slave_xactor.axi_side);
 
    rule master0_aw if (rg_ready);
@@ -248,7 +252,7 @@ module mkAWSP2#(AWSP2_Response response)(AWSP2);
    endrule
 `endif // not USE_DDR
 
-   AXI4_Slave_Xactor_IFC#(4, 64, 64, 0) io_slave_xactor <- mkAXI4_Slave_Xactor();
+   AXI4_Slave_Xactor_IFC#(Wd_Id, 64, 64, 0) io_slave_xactor <- mkAXI4_Slave_Xactor();
    mkConnection(to_slave2, io_slave_xactor.axi_side);
 
    rule master1_aw if (rg_ready);
@@ -350,11 +354,11 @@ module mkAWSP2#(AWSP2_Response response)(AWSP2);
    Reg#(Bool) rg_addr_map_set <- mkReg(False);
    rule rl_set_addr_map if (!rg_addr_map_set);
       $display("memController.set_addr_map: %h %h",
-                min(soc_map.m_ddr4_0_uncached_addr_base, soc_map.m_ddr4_0_cached_addr_base),
-		max(soc_map.m_ddr4_0_uncached_addr_lim, soc_map.m_ddr4_0_cached_addr_lim));
-      memController.set_addr_map(min(soc_map.m_ddr4_0_uncached_addr_base, soc_map.m_ddr4_0_cached_addr_base),
-                                 max(soc_map.m_ddr4_0_uncached_addr_lim, soc_map.m_ddr4_0_cached_addr_lim));
-      uart.set_addr_map(soc_map.m_uart16550_0_addr_base, soc_map.m_uart16550_0_addr_lim);
+                min(ddr4_0_uncached_addr_base(soc_map), ddr4_0_cached_addr_base(soc_map)),
+		max(ddr4_0_uncached_addr_lim(soc_map), ddr4_0_cached_addr_lim(soc_map)));
+      memController.set_addr_map(min(ddr4_0_uncached_addr_base(soc_map), ddr4_0_cached_addr_base(soc_map)),
+                                 max(ddr4_0_uncached_addr_lim(soc_map), ddr4_0_cached_addr_lim(soc_map)));
+      uart.set_addr_map(uart16550_0_addr_base(soc_map), uart16550_0_addr_lim(soc_map));
       rg_addr_map_set <= True;
    endrule
 
@@ -514,3 +518,51 @@ module mkConnectionVerbose #(AXI4_Master_IFC #(wd_id, wd_addr, wd_data, wd_user)
       axis.m_rready (axim.m_rready);
    endrule
 endmodule
+
+`ifdef HAVE_ROUTABLE
+
+function Bit#(64) ddr4_0_uncached_addr_base(SoC_Map_IFC soc_map);
+   return rangeBase(soc_map.m_ddr4_0_uncached_addr_range);
+endfunction
+function Bit#(64) ddr4_0_uncached_addr_lim(SoC_Map_IFC soc_map);
+   return rangeTop(soc_map.m_ddr4_0_uncached_addr_range);
+endfunction
+
+function Bit#(64) ddr4_0_cached_addr_base(SoC_Map_IFC soc_map);
+   return rangeBase(soc_map.m_ddr4_0_cached_addr_range);
+endfunction
+function Bit#(64) ddr4_0_cached_addr_lim(SoC_Map_IFC soc_map);
+   return rangeTop(soc_map.m_ddr4_0_cached_addr_range);
+endfunction
+
+function Bit#(64) uart16550_0_addr_base(SoC_Map_IFC soc_map);
+   return rangeBase(soc_map.m_uart16550_0_addr_range);
+endfunction
+function Bit#(64) uart16550_0_addr_lim(SoC_Map_IFC soc_map);
+   return rangeTop(soc_map.m_uart16550_0_addr_range);
+endfunction
+
+`else
+
+function Bit#(64) ddr4_0_uncached_addr_base(SoC_Map_IFC soc_map);
+   return soc_map.m_ddr4_0_uncached_addr_base;
+endfunction
+function Bit#(64) ddr4_0_uncached_addr_lim(SoC_Map_IFC soc_map);
+   return soc_map.m_ddr4_0_uncached_addr_lim;
+endfunction
+
+function Bit#(64) ddr4_0_cached_addr_base(SoC_Map_IFC soc_map);
+   return soc_map.m_ddr4_0_cached_addr_base;
+endfunction
+function Bit#(64) ddr4_0_cached_addr_lim(SoC_Map_IFC soc_map);
+   return soc_map.m_ddr4_0_cached_addr_lim;
+endfunction
+
+function Bit#(64) uart16550_0_addr_base(SoC_Map_IFC soc_map);
+   return soc_map.m_uart16550_0_addr_base;
+endfunction
+function Bit#(64) uart16550_0_addr_lim(SoC_Map_IFC soc_map);
+   return soc_map.m_uart16550_0_addr_lim;
+endfunction
+
+`endif

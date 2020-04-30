@@ -2,8 +2,10 @@
 import Vector     :: *;
 `ifdef HAVE_BLUESTUFF_AXI
 import Bluespec_AXI4_Types :: *;
+import Bluespec_Fabric_Defs :: *;
 `else
 import AXI4_Types :: *;
+import Fabric_Defs :: *;
 `endif
 
 interface AWSP2_Request;
@@ -48,6 +50,6 @@ endinterface
 
 interface AWSP2_Pin_IFC;
   (* always_ready, always_enabled, prefix="" *)
-  interface AXI4_Master_IFC#(4, 64, 512, 0) ddr;
-  interface AXI4_Slave_IFC#(4, 64, 512, 0) pcis;
+  interface AXI4_Master_IFC#(Wd_Id, 64, 512, 0) ddr;
+  interface AXI4_Slave_IFC#(Wd_Id, 64, 512, 0) pcis;
 endinterface

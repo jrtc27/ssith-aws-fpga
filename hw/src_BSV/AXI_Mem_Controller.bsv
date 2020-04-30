@@ -199,7 +199,7 @@ interface AXI_Mem_Controller_IFC;
    interface AXI4_Slave_IFC #(Wd_Id, Wd_Addr, Wd_Data, Wd_User) slave;
 
    // To raw memory (outside the SoC)
-   interface AXI4_Master_IFC #(4, Bits_per_Raw_Mem_Addr, Bits_per_Raw_Mem_Word, 0)  to_raw_mem;
+   interface AXI4_Master_IFC #(Wd_Id, Bits_per_Raw_Mem_Addr, Bits_per_Raw_Mem_Word, 0)  to_raw_mem;
 
    // Catch-all status; return-value can identify the origin (0 = none)
    (* always_ready *)
@@ -220,7 +220,7 @@ deriving (Bits, Eq, FShow);
 typedef struct {Req_Op                     req_op;
 
 		// AW and AR channel info
-		Fabric_Id                  id;
+		Bit#(Wd_Id)          id;
 		Fabric_Addr                addr;
 		AXI4_Len                   len;
 		AXI4_Size                  size;
@@ -263,7 +263,7 @@ module mkAXI_Mem_Controller (AXI_Mem_Controller_IFC);
    FIFOF #(Req) f_reqs <- mkPipelineFIFOF;
 
    // FIFOFs for requests/responses to raw memory
-   AXI4_Master_Xactor_IFC #(4, Bits_per_Raw_Mem_Addr, Bits_per_Raw_Mem_Word, 0) master_xactor <- mkAXI4_Master_Xactor;
+   AXI4_Master_Xactor_IFC #(Wd_Id, Bits_per_Raw_Mem_Addr, Bits_per_Raw_Mem_Word, 0) master_xactor <- mkAXI4_Master_Xactor;
 
    // We maintain a 1-raw_mem_word cache
    Reg #(Bool)          rg_cached_clean        <- mkRegU;
